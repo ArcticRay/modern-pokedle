@@ -1,0 +1,36 @@
+# Binaries
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Go build artifacts
+*.test
+*.out
+
+# Environment 
+.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Generated files 
+docs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage.out
+coverage.html
+
+# Terraform state
+**/.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
