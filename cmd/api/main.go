@@ -6,6 +6,7 @@ import (
 
 	"github.com/ArcticRay/modern-pokedle/internal/config"
 	"github.com/ArcticRay/modern-pokedle/internal/observability"
+	"github.com/ArcticRay/modern-pokedle/internal/server"
 )
 
 func main() {
@@ -26,4 +27,9 @@ func main() {
 		"env":  cfg.Env,
 		"port": cfg.Port,
 	})
+
+	srv := server.New(cfg, logger)
+	if err := srv.Start(); err != nil {
+		logger.Fatal("server error", map[string]any{"error": err})
+	}
 }
