@@ -18,6 +18,7 @@ func NewLogger(env string) (*Logger, error) {
 	default:
 		zapLogger, err = zap.NewDevelopment()
 	}
+	zapLogger = zapLogger.WithOptions(zap.AddCallerSkip(1))
 
 	if err != nil {
 		return nil, err

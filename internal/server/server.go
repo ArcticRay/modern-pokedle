@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/ArcticRay/modern-pokedle/internal/config"
+	"github.com/ArcticRay/modern-pokedle/internal/middleware"
 	"github.com/ArcticRay/modern-pokedle/internal/observability"
 	"github.com/go-chi/chi/v5"
 )
@@ -17,6 +18,7 @@ type Server struct {
 
 func New(cfg *config.Config, logger *observability.Logger) *Server {
 	r := chi.NewRouter()
+	r.Use(middleware.RequestLogger(logger))
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
