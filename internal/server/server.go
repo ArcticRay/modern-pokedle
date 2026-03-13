@@ -15,17 +15,19 @@ import (
 )
 
 type Server struct {
-	cfg    *config.Config
-	logger *observability.Logger
-	db     *pgxpool.Pool
-	http   *http.Server
+	cfg            *config.Config
+	logger         *observability.Logger
+	db             *pgxpool.Pool
+	pokemonService *pokemon.Service
+	http           *http.Server
 }
 
-func New(cfg *config.Config, db *pgxpool.Pool, logger *observability.Logger) *Server {
+func New(cfg *config.Config, db *pgxpool.Pool, pokemonService *pokemon.Service, logger *observability.Logger) *Server {
 	s := &Server{
-		cfg:    cfg,
-		logger: logger,
-		db:     db,
+		cfg:            cfg,
+		logger:         logger,
+		db:             db,
+		pokemonService: pokemonService,
 	}
 
 	r := chi.NewRouter()
@@ -46,8 +48,7 @@ func New(cfg *config.Config, db *pgxpool.Pool, logger *observability.Logger) *Se
 	r.Get("/test/pokemon/{name}", func(w http.ResponseWriter, r *http.Request) {
 		name := chi.URLParam(r, "name")
 
-		client := pokemon.NewClient("https://pokeapi.co/api/v2")
-		p, err := client.GetPokemon(r.Context(), name)
+		p, err := s.pokemonService.GetPokemon(r.Context(), name)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprint(w, err.Error())
