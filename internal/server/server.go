@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"net/http"
 
+	"encoding/json"
+
 	"github.com/ArcticRay/modern-pokedle/internal/config"
 	"github.com/ArcticRay/modern-pokedle/internal/middleware"
 	"github.com/ArcticRay/modern-pokedle/internal/observability"
+	"github.com/ArcticRay/modern-pokedle/internal/pokemon"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -38,6 +41,21 @@ func New(cfg *config.Config, db *pgxpool.Pool, logger *observability.Logger) *Se
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprint(w, `{"status":"ok","db":"reachable"}`)
+	})
+
+	r.Get("/test/pokemon/{name}", func(w http.ResponseWriter, r *http.Request) {
+		name := chi.URLParam(r, "name")
+
+		client := pokemon.NewClient("https://pokeapi.co/api/v2")
+		p, err := client.GetPokemon(r.Context(), name)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprint(w, err.Error())
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(p)
 	})
 
 	s.http = &http.Server{
