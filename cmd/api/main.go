@@ -44,7 +44,7 @@ func main() {
 
 	logger.Info("database connected", map[string]any{})
 
-	srv := server.New(cfg, logger)
+	srv := server.New(cfg, db, logger)
 	if err := srv.Start(); err != nil {
 		logger.Fatal("server error", map[string]any{"error": err})
 	}
