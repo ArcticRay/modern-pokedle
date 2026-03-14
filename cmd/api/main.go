@@ -7,6 +7,7 @@ import (
 	"github.com/ArcticRay/modern-pokedle/internal/config"
 	"github.com/ArcticRay/modern-pokedle/internal/database"
 	"github.com/ArcticRay/modern-pokedle/internal/observability"
+	"github.com/ArcticRay/modern-pokedle/internal/pokemon"
 	"github.com/ArcticRay/modern-pokedle/internal/server"
 )
 
@@ -44,7 +45,15 @@ func main() {
 
 	logger.Info("database connected", map[string]any{})
 
-	srv := server.New(cfg, db, logger)
+	pokemonCache, err := pokemon.NewCache(cfg.RedisURL)
+	if err != nil {
+		logger.Fatal("failed to connect to redis", map[string]any{"error": err})
+	}
+
+	pokemonClient := pokemon.NewClient("https://pokeapi.co/api/v2")
+	pokemonService := pokemon.NewService(pokemonClient, pokemonCache)
+
+	srv := server.New(cfg, db, pokemonService, logger)
 	if err := srv.Start(); err != nil {
 		logger.Fatal("server error", map[string]any{"error": err})
 	}
