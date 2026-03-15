@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 
 	"github.com/ArcticRay/modern-pokedle/internal/config"
+	"github.com/ArcticRay/modern-pokedle/internal/game"
 	"github.com/ArcticRay/modern-pokedle/internal/middleware"
 	"github.com/ArcticRay/modern-pokedle/internal/observability"
 	"github.com/ArcticRay/modern-pokedle/internal/pokemon"
@@ -57,6 +58,30 @@ func New(cfg *config.Config, db *pgxpool.Pool, pokemonService *pokemon.Service, 
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(p)
+	})
+
+	r.Get("/test/guess/{target}/{guess}", func(w http.ResponseWriter, r *http.Request) {
+		targetName := chi.URLParam(r, "target")
+		guessName := chi.URLParam(r, "guess")
+
+		target, err := s.pokemonService.GetPokemon(r.Context(), targetName)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprint(w, err.Error())
+			return
+		}
+
+		guess, err := s.pokemonService.GetPokemon(r.Context(), guessName)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprint(w, err.Error())
+			return
+		}
+
+		result := game.CompareGuess(*guess, *target)
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(result)
 	})
 
 	s.http = &http.Server{

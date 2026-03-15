@@ -78,7 +78,7 @@ func (c *Client) GetPokemon(ctx context.Context, nameOrID string) (*Pokemon, err
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
 
-	species, err := c.GetSpecies(ctx, apiResp.ID)
+	species, err := c.GetSpecies(ctx, apiResp.Name)
 	if err != nil {
 		return nil, fmt.Errorf("get species: %w", err)
 	}
@@ -98,11 +98,18 @@ func (c *Client) GetPokemon(ctx context.Context, nameOrID string) (*Pokemon, err
 
 	pokemon.Generation = parseGeneration(species.Generation.Name)
 
+	evolutionStage, err := c.GetEvolutionStage(ctx, apiResp.Name)
+	if err != nil {
+		return nil, fmt.Errorf("get evolution stage: %w", err)
+	}
+	fmt.Println("Evolution stage:", evolutionStage)
+	pokemon.EvolutionStage = evolutionStage
+
 	return pokemon, nil
 }
 
-func (c *Client) GetSpecies(ctx context.Context, id int) (*pokeAPISpeciesResponse, error) {
-	url := fmt.Sprintf("%s/pokemon-species/%d", c.baseURL, id)
+func (c *Client) GetSpecies(ctx context.Context, nameOrID string) (*pokeAPISpeciesResponse, error) {
+	url := fmt.Sprintf("%s/pokemon-species/%s", c.baseURL, nameOrID)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -125,6 +132,28 @@ func (c *Client) GetSpecies(ctx context.Context, id int) (*pokeAPISpeciesRespons
 	}
 
 	return &speciesResp, nil
+}
+
+func (c *Client) GetEvolutionStage(ctx context.Context, nameOrID string) (int, error) {
+	species, err := c.GetSpecies(ctx, nameOrID)
+	if err != nil {
+		return 0, err
+	}
+
+	if species.EvolvesFromSpecies == nil {
+		return 1, nil
+	}
+
+	prevSpecies, err := c.GetSpecies(ctx, species.EvolvesFromSpecies.Name)
+	if err != nil {
+		return 0, err
+	}
+
+	if prevSpecies.EvolvesFromSpecies == nil {
+		return 2, nil
+	}
+
+	return 3, nil
 }
 
 func parseGeneration(name string) int {

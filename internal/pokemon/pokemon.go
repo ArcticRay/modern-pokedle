@@ -21,7 +21,7 @@ type GuessResult struct {
 	TypeResult       MatchResult
 	HabitatResult    MatchResult
 	ColorResult      MatchResult
-	EvolutionResult  MatchResult
+	EvolutionResult  DirectionalResult
 	HeightResult     DirectionalResult
 	GenerationResult DirectionalResult
 }
