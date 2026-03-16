@@ -68,6 +68,23 @@ func New(cfg *config.Config, db *pgxpool.Pool, pokemonService *pokemon.Service, 
 		})
 	})
 
+	gameHandler := game.NewHandler(s.db, s.pokemonService)
+
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.Authenticate(s.authService, s.logger))
+
+		r.Get("/me", func(w http.ResponseWriter, r *http.Request) {
+			userID := middleware.UserIDFromContext(r.Context())
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]string{"user_id": userID})
+		})
+
+		r.Route("/api/v1/games", func(r chi.Router) {
+			r.Post("/", gameHandler.HandleStartGame)
+			r.Post("/guess", gameHandler.HandleGuess)
+		})
+	})
+
 	r.Get("/test/pokemon/{name}", func(w http.ResponseWriter, r *http.Request) {
 		name := chi.URLParam(r, "name")
 
