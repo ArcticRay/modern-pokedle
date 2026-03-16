@@ -1,10 +1,9 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
-
-	"encoding/json"
 
 	"github.com/ArcticRay/modern-pokedle/internal/auth"
 	"github.com/ArcticRay/modern-pokedle/internal/config"
@@ -51,12 +50,14 @@ func New(cfg *config.Config, db *pgxpool.Pool, pokemonService *pokemon.Service, 
 		fmt.Fprint(w, `{"status":"ok","db":"reachable"}`)
 	})
 
+	gameHandler := game.NewHandler(s.db, s.pokemonService)
+
 	r.Route("/api/v1", func(r chi.Router) {
-		// public routes / no auth
+		// public routes
 		r.Get("/auth/github", s.authHandler.HandleGitHubLogin)
 		r.Get("/auth/github/callback", s.authHandler.HandleGitHubCallback)
 
-		// private routes /  JWT required
+		// private routes
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Authenticate(s.authService, s.logger))
 
@@ -65,19 +66,24 @@ func New(cfg *config.Config, db *pgxpool.Pool, pokemonService *pokemon.Service, 
 				w.Header().Set("Content-Type", "application/json")
 				json.NewEncoder(w).Encode(map[string]string{"user_id": userID})
 			})
+
+			r.Route("/games", func(r chi.Router) {
+				r.Post("/", gameHandler.HandleStartGame)
+				r.Get("/today", gameHandler.HandleGetTodaysGame)
+				r.Post("/guess", gameHandler.HandleGuess)
+			})
 		})
 	})
 
+	// Test Endpoints
 	r.Get("/test/pokemon/{name}", func(w http.ResponseWriter, r *http.Request) {
 		name := chi.URLParam(r, "name")
-
 		p, err := s.pokemonService.GetPokemon(r.Context(), name)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprint(w, err.Error())
 			return
 		}
-
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(p)
 	})
@@ -85,23 +91,19 @@ func New(cfg *config.Config, db *pgxpool.Pool, pokemonService *pokemon.Service, 
 	r.Get("/test/guess/{target}/{guess}", func(w http.ResponseWriter, r *http.Request) {
 		targetName := chi.URLParam(r, "target")
 		guessName := chi.URLParam(r, "guess")
-
 		target, err := s.pokemonService.GetPokemon(r.Context(), targetName)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprint(w, err.Error())
 			return
 		}
-
 		guess, err := s.pokemonService.GetPokemon(r.Context(), guessName)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprint(w, err.Error())
 			return
 		}
-
 		result := game.CompareGuess(*guess, *target)
-
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(result)
 	})
