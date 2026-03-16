@@ -37,6 +37,7 @@ func New(cfg *config.Config, db *pgxpool.Pool, pokemonService *pokemon.Service, 
 
 	r := chi.NewRouter()
 	r.Use(middleware.RequestLogger(logger))
+	r.Use(middleware.CORS([]string{"http://localhost:5173"}))
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		if err := s.db.Ping(r.Context()); err != nil {
