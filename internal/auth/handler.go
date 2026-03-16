@@ -1,7 +1,7 @@
 package auth
 
 import (
-	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -72,10 +72,5 @@ func (h *Handler) HandleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"access_token":  accessToken,
-		"refresh_token": refreshToken,
-		"user":          githubUser.Login,
-	})
+	http.Redirect(w, r, fmt.Sprintf("http://localhost:5173?token=%s&refresh_token=%s", accessToken, refreshToken), http.StatusTemporaryRedirect)
 }
