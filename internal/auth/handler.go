@@ -2,21 +2,25 @@ package auth
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
+	"time"
 
+	"github.com/ArcticRay/modern-pokedle/internal/database"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/oauth2"
 )
 
 type Handler struct {
 	oauthConfig *oauth2.Config
 	authService *Service
+	db          *pgxpool.Pool
 }
 
-func NewHandler(oauthConfig *oauth2.Config, authService *Service) *Handler {
+func NewHandler(oauthConfig *oauth2.Config, authService *Service, db *pgxpool.Pool) *Handler {
 	return &Handler{
 		oauthConfig: oauthConfig,
 		authService: authService,
+		db:          db,
 	}
 }
 
@@ -45,15 +49,33 @@ func (h *Handler) HandleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	accessToken, err := h.authService.GenerateAccessToken(fmt.Sprintf("%d", githubUser.ID))
+	user, err := database.UpsertUser(r.Context(), h.db, githubUser.ID, githubUser.Login, githubUser.AvatarURL)
 	if err != nil {
-		http.Error(w, "failed to generate token", http.StatusInternalServerError)
+		http.Error(w, "failed to upsert user", http.StatusInternalServerError)
+		return
+	}
+
+	accessToken, err := h.authService.GenerateAccessToken(user.ID)
+	if err != nil {
+		http.Error(w, "failed to generate access token", http.StatusInternalServerError)
+		return
+	}
+
+	refreshToken, err := h.authService.GenerateRefreshToken()
+	if err != nil {
+		http.Error(w, "failed to generate refresh token", http.StatusInternalServerError)
+		return
+	}
+
+	if err := database.SaveRefreshToken(r.Context(), h.db, user.ID, refreshToken, time.Now().Add(h.authService.refreshTokenTTL)); err != nil {
+		http.Error(w, "failed to save refresh token", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
-		"access_token": accessToken,
-		"user":         githubUser.Login,
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
+		"user":          githubUser.Login,
 	})
 }

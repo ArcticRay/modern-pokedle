@@ -22,16 +22,18 @@ type Server struct {
 	db             *pgxpool.Pool
 	pokemonService *pokemon.Service
 	authHandler    *auth.Handler
+	authService    *auth.Service
 	http           *http.Server
 }
 
-func New(cfg *config.Config, db *pgxpool.Pool, pokemonService *pokemon.Service, authHandler *auth.Handler, logger *observability.Logger) *Server {
+func New(cfg *config.Config, db *pgxpool.Pool, pokemonService *pokemon.Service, authHandler *auth.Handler, authService *auth.Service, logger *observability.Logger) *Server {
 	s := &Server{
 		cfg:            cfg,
 		logger:         logger,
 		db:             db,
 		pokemonService: pokemonService,
 		authHandler:    authHandler,
+		authService:    authService,
 	}
 
 	r := chi.NewRouter()
@@ -50,8 +52,20 @@ func New(cfg *config.Config, db *pgxpool.Pool, pokemonService *pokemon.Service, 
 	})
 
 	r.Route("/api/v1", func(r chi.Router) {
+		// public routes / no auth
 		r.Get("/auth/github", s.authHandler.HandleGitHubLogin)
 		r.Get("/auth/github/callback", s.authHandler.HandleGitHubCallback)
+
+		// private routes /  JWT required
+		r.Group(func(r chi.Router) {
+			r.Use(middleware.Authenticate(s.authService, s.logger))
+
+			r.Get("/me", func(w http.ResponseWriter, r *http.Request) {
+				userID := middleware.UserIDFromContext(r.Context())
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(map[string]string{"user_id": userID})
+			})
+		})
 	})
 
 	r.Get("/test/pokemon/{name}", func(w http.ResponseWriter, r *http.Request) {

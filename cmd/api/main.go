@@ -58,9 +58,9 @@ func main() {
 	})
 
 	authService := auth.NewService(cfg.JWTSecret, cfg.JWTAccessTokenTTL, cfg.JWTRefreshTokenTTL)
-	authHandler := auth.NewHandler(githubOAuthConfig, authService)
+	authHandler := auth.NewHandler(githubOAuthConfig, authService, db)
 
-	srv := server.New(cfg, db, pokemonService, authHandler, logger)
+	srv := server.New(cfg, db, pokemonService, authHandler, authService, logger)
 	if err := srv.Start(); err != nil {
 		logger.Fatal("server error", map[string]any{"error": err})
 	}
