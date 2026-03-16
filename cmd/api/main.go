@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/ArcticRay/modern-pokedle/internal/auth"
 	"github.com/ArcticRay/modern-pokedle/internal/config"
 	"github.com/ArcticRay/modern-pokedle/internal/database"
 	"github.com/ArcticRay/modern-pokedle/internal/observability"
@@ -31,19 +32,16 @@ func main() {
 	})
 
 	db, err := database.NewPool(cfg.DatabaseURL)
-
-	if err := database.RunMigrations(cfg.DatabaseURL); err != nil {
-		logger.Fatal("failed to run migrations", map[string]any{"error": err})
-	}
-
-	logger.Info("migrations complete", map[string]any{})
-
 	if err != nil {
 		logger.Fatal("failed to connect to database", map[string]any{"error": err})
 	}
 	defer db.Close()
-
 	logger.Info("database connected", map[string]any{})
+
+	if err := database.RunMigrations(cfg.DatabaseURL); err != nil {
+		logger.Fatal("failed to run migrations", map[string]any{"error": err})
+	}
+	logger.Info("migrations complete", map[string]any{})
 
 	pokemonCache, err := pokemon.NewCache(cfg.RedisURL)
 	if err != nil {
@@ -53,7 +51,16 @@ func main() {
 	pokemonClient := pokemon.NewClient("https://pokeapi.co/api/v2")
 	pokemonService := pokemon.NewService(pokemonClient, pokemonCache)
 
-	srv := server.New(cfg, db, pokemonService, logger)
+	githubOAuthConfig := auth.NewGitHubOAuthConfig(auth.GitHubConfig{
+		ClientID:     cfg.GitHubClientID,
+		ClientSecret: cfg.GitHubClientSecret,
+		CallbackURL:  cfg.GitHubCallbackURL,
+	})
+
+	authService := auth.NewService(cfg.JWTSecret, cfg.JWTAccessTokenTTL, cfg.JWTRefreshTokenTTL)
+	authHandler := auth.NewHandler(githubOAuthConfig, authService)
+
+	srv := server.New(cfg, db, pokemonService, authHandler, logger)
 	if err := srv.Start(); err != nil {
 		logger.Fatal("server error", map[string]any{"error": err})
 	}
