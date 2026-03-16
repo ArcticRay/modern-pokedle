@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"time"
 )
 
 type Env string
@@ -25,6 +26,11 @@ type Config struct {
 
 	GitHubClientID     string
 	GitHubClientSecret string
+
+	GitHubCallbackURL string
+
+	JWTAccessTokenTTL  time.Duration
+	JWTRefreshTokenTTL time.Duration
 
 	JWTSecret string
 }
@@ -61,9 +67,32 @@ func Load() (*Config, error) {
 		missing = append(missing, "JWT_SECRET")
 	}
 
+	cfg.GitHubCallbackURL = getEnvStr("GITHUB_CALLBACK_URL", "http://localhost:8080/api/v1/auth/github/callback")
+	cfg.JWTAccessTokenTTL = getEnvDuration("JWT_ACCESS_TOKEN_TTL", 15*time.Minute)
+	cfg.JWTRefreshTokenTTL = getEnvDuration("JWT_REFRESH_TOKEN_TTL", 7*24*time.Hour)
+
 	if len(missing) > 0 {
 		return nil, fmt.Errorf("missing required environment variables: %v", missing)
 	}
 
 	return cfg, nil
+}
+
+func getEnvStr(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
+
+func getEnvDuration(key string, fallback time.Duration) time.Duration {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	d, err := time.ParseDuration(v)
+	if err != nil {
+		return fallback
+	}
+	return d
 }

@@ -6,6 +6,7 @@ import (
 
 	"encoding/json"
 
+	"github.com/ArcticRay/modern-pokedle/internal/auth"
 	"github.com/ArcticRay/modern-pokedle/internal/config"
 	"github.com/ArcticRay/modern-pokedle/internal/game"
 	"github.com/ArcticRay/modern-pokedle/internal/middleware"
@@ -20,15 +21,17 @@ type Server struct {
 	logger         *observability.Logger
 	db             *pgxpool.Pool
 	pokemonService *pokemon.Service
+	authHandler    *auth.Handler
 	http           *http.Server
 }
 
-func New(cfg *config.Config, db *pgxpool.Pool, pokemonService *pokemon.Service, logger *observability.Logger) *Server {
+func New(cfg *config.Config, db *pgxpool.Pool, pokemonService *pokemon.Service, authHandler *auth.Handler, logger *observability.Logger) *Server {
 	s := &Server{
 		cfg:            cfg,
 		logger:         logger,
 		db:             db,
 		pokemonService: pokemonService,
+		authHandler:    authHandler,
 	}
 
 	r := chi.NewRouter()
@@ -44,6 +47,11 @@ func New(cfg *config.Config, db *pgxpool.Pool, pokemonService *pokemon.Service, 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprint(w, `{"status":"ok","db":"reachable"}`)
+	})
+
+	r.Route("/api/v1", func(r chi.Router) {
+		r.Get("/auth/github", s.authHandler.HandleGitHubLogin)
+		r.Get("/auth/github/callback", s.authHandler.HandleGitHubCallback)
 	})
 
 	r.Get("/test/pokemon/{name}", func(w http.ResponseWriter, r *http.Request) {
