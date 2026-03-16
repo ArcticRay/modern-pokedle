@@ -114,3 +114,19 @@ func (h *Handler) HandleGuess(w http.ResponseWriter, r *http.Request) {
 		"guesses_left": MaxGuesses - (game.GuessesCount + 1),
 	})
 }
+
+func (h *Handler) HandleGetTodaysGame(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.UserIDFromContext(r.Context())
+
+	game, guesses, err := database.GetTodaysGame(r.Context(), h.db, userID)
+	if err != nil {
+		http.Error(w, `{"error":"no active game found"}`, http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"game":    game,
+		"guesses": guesses,
+	})
+}

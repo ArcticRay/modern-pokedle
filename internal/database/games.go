@@ -129,3 +129,39 @@ func GetGameWithGuesses(ctx context.Context, db *pgxpool.Pool, gameID string) (*
 
 	return game, guesses, nil
 }
+
+func GetTodaysGame(ctx context.Context, db *pgxpool.Pool, userID string) (*Game, []Guess, error) {
+	game := &Game{}
+	err := db.QueryRow(ctx, `
+		SELECT id, user_id, game_date, status, pokemon_id, pokemon_name, guesses_count, started_at, completed_at
+		FROM games 
+		WHERE user_id = $1 AND game_date = CURRENT_DATE
+	`, userID).Scan(
+		&game.ID, &game.UserID, &game.GameDate, &game.Status,
+		&game.PokemonID, &game.PokemonName, &game.GuessesCount,
+		&game.StartedAt, &game.CompletedAt,
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("get todays game: %w", err)
+	}
+
+	rows, err := db.Query(ctx, `
+		SELECT id, game_id, guess_number, pokemon_id, pokemon_name, result, created_at
+		FROM guesses WHERE game_id = $1 ORDER BY guess_number
+	`, game.ID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("get guesses: %w", err)
+	}
+	defer rows.Close()
+
+	var guesses []Guess
+	for rows.Next() {
+		var g Guess
+		if err := rows.Scan(&g.ID, &g.GameID, &g.GuessNumber, &g.PokemonID, &g.PokemonName, &g.Result, &g.CreatedAt); err != nil {
+			return nil, nil, fmt.Errorf("scan guess: %w", err)
+		}
+		guesses = append(guesses, g)
+	}
+
+	return game, guesses, nil
+}
